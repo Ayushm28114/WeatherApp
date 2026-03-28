@@ -1,12 +1,145 @@
-:root{--bg:#f3f6fb;--card:#fff;--accent:#2563eb}
+/* Weather Dashboard - Modern Dark Glass Theme
+   - High-contrast dark mode
+   - Glassmorphism cards (light blur, subtle border)
+   - Bento grid layout for Current page
+   - Fluid typography for key metrics
+   - Minimal chart chrome hooks
+   - Mobile-first, performant styles
+*/
+:root{
+  --bg-1: #0f172a; /* updated deep mesh start */
+  --bg-2: #312e81; /* updated deep mesh end */
+  --panel: rgba(255,255,255,0.03);
+  --panel-strong: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.10);
+
+  --accent: #0ea5ff; /* Electric Blue (vibrant) */
+  --accent-2: #60dafb;
+  --warm: #fb923c; /* warm for temp highlights */
+  --warn: #f97316; /* alert/warning */
+  --success: #34d399; /* AQ good */
+  --muted: rgba(255,255,255,0.88);
+  --muted-2: rgba(255,255,255,0.6);
+
+  --radius: 28px; /* softer rounding for premium feel */
+  --shadow-outer: 0 20px 60px rgba(2,6,23,0.7);
+  --glass-blur: 16px; /* deeper blur per request */
+}
+
+/* Base layout */
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:#111}
-.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:linear-gradient(90deg,#fff, #f8fafc);border-bottom:1px solid #e6eef8}
-.nav-links a{margin-left:12px;text-decoration:none;color:var(--accent)}
-.app main{padding:16px}
-.page .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.card{background:var(--card);padding:12px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
-.charts .chart-row{display:flex;gap:12px;flex-wrap:wrap}
-.chart-card{flex:1 1 300px;background:var(--card);padding:8px;border-radius:8px}
-@media (max-width:600px){.chart-card{flex-basis:100%}}
+html,body,#root{height:100%}
+body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); color:var(--muted); -webkit-font-smoothing:antialiased}
+.app{max-width:1200px;margin:28px auto;padding:20px}
+
+/* Immersive mesh background + subtle grain */
+.app::before{content:'';position:fixed;inset:0;z-index:-2;background:radial-gradient(800px 600px at 12% 8%, rgba(14,165,233,0.06), transparent), radial-gradient(700px 500px at 88% 92%, rgba(139,92,246,0.04), transparent), linear-gradient(180deg,var(--bg-1),var(--bg-2));}
+.app::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.02"/></svg>');opacity:0.03}
+
+/* Top navigation (legacy .topbar used by App.jsx) */
+.topbar, .navbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-radius:14px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);box-shadow:var(--shadow-outer)}
+.topbar h1, .app-title{margin:0;font-size:18px;color:#fff;font-weight:700}
+.nav-links, .navbar-center{display:flex;gap:12px}
+.nav-links a, .navbar-center a{color:var(--muted-2);text-decoration:none;padding:8px 12px;border-radius:10px;transition:all .28s ease}
+.nav-links a:hover, .navbar-center a:hover{background:rgba(255,255,255,0.02);color:#fff}
+.nav-links a.active, .navbar-center a.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071226;font-weight:700}
+
+/* Controls / small UI */
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:14px 0}
+.controls label{font-size:13px;color:var(--muted-2)}
+.btn{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#071226;border:0;padding:10px 14px;border-radius:12px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.btn:active{transform:translateY(1px)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(2,6,23,0.5)}
+
+/* Glass card base - premium glassmorphism */
+.card{
+  backdrop-filter: blur(var(--glass-blur));
+  background: rgba(255,255,255,0.03); /* frosted glass */
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--radius);
+  padding: 24px; /* increased padding for luxury spacing */
+  transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+  overflow:hidden;
+  box-shadow: 0 24px 80px rgba(2,6,23,0.65);
+}
+.card:hover{transform:translateY(-8px);box-shadow:0 36px 100px rgba(2,6,23,0.72);border-color: rgba(255,255,255,0.16)}
+
+/* Grid areas for bento - use template areas for clarity */
+.bento-grid{display:grid;grid-template-columns: repeat(3, 1fr);grid-template-areas: "hero hero side1" "hero hero side2" "aq chart chart";gap:18px;align-items:start}
+.hero-card{grid-area:hero}
+.square-tile:nth-of-type(1){grid-area:side1}
+.square-tile:nth-of-type(2){grid-area:side2}
+.wide-card{grid-area:aq}
+.chart-area{grid-area:chart}
+
+/* DatePicker and inputs restyle */
+.input-inline{display:flex;flex-direction:column}
+.datepicker-wrap .input{background:rgba(0,0,0,0.25);border-radius:12px;padding:8px 10px;color:#fff;border:none}
+.react-datepicker__tab-loop{outline:none}
+.input{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:12px;color:#fff}
+.input::placeholder{color:rgba(255,255,255,0.35)}
+
+/* Loading skeletons */
+.loading-state{padding:30px}
+.skeleton{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.06), rgba(255,255,255,0.02));height:12px;border-radius:8px}
+.temp-skel{height:120px;width:300px;border-radius:12px;animation:shimmer 1.6s infinite linear}
+@keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
+
+/* Empty state - search location hero */
+.empty-state{padding:40px}
+.empty-inner{display:flex;flex-direction:column;align-items:center;gap:8px}
+.empty-inner h2{font-weight:300;font-size:48px;margin:0;color:#fff;letter-spacing:0.3px}
+.empty-inner .note{font-size:15px;color:var(--muted-2);text-align:center;max-width:420px}
+.empty-inner .btn{padding:10px 14px;border-radius:12px}
+
+/* Slight polish for small details */
+.city-name{font-size:2rem;font-weight:800;color:#fff;letter-spacing:0.2px}
+.value-strong{font-weight:800;color:#fff}
+
+/* ensure the glass shell and hero stand out */
+.glass-shell{backdrop-filter: blur(20px);background: rgba(255,255,255,0.03);border-radius:28px;border:1px solid rgba(255,255,255,0.10);padding:24px;box-shadow: 0 40px 120px rgba(2,6,23,0.75), inset 0 1px 0 rgba(255,255,255,0.02)}
+
+/* Typography & hierarchy */
+.temp-large{font-weight:200;color:transparent;background:linear-gradient(90deg,var(--accent),var(--warm));-webkit-background-clip:text;background-clip:text;font-size:5rem;line-height:1;text-shadow:0 12px 40px rgba(14,165,233,0.08)}
+.note{opacity:0.6}
+
+/* Units toggle & active tab glow */
+.nav-links a.active, .navbar-center a.active{background:linear-gradient(90deg, rgba(14,165,233,0.14), rgba(14,165,233,0.06));color:#fff;font-weight:700;box-shadow:0 10px 40px rgba(14,165,233,0.14);backdrop-filter:blur(6px)}
+
+/* Chart styling hooks (configure in Chart.js options using these vars):
+   grid color: rgba(255,255,255,0.05)
+   primary line: var(--accent)
+   fill gradient: from rgba(251,146,60,0.18) to transparent (use ctx.createLinearGradient)
+*/
+.chart-area canvas{width:100%!important;height:360px!important}
+
+/* Bento Card Spacing override already applied via .card */
+
+/* Mobile responsiveness - stack to single column, mobile-first */
+@media (max-width:1000px){
+  .bento-grid{grid-template-columns:repeat(2,1fr);grid-template-areas:"hero hero" "side1 side2" "aq chart"}
+  .hero-card{grid-column:span 2}
+  .chart-area{grid-column:span 2}
+}
+@media (max-width:900px){
+  .bento-grid{grid-template-columns:repeat(2,1fr);grid-template-areas:"hero hero" "side1 side2" "aq chart"}
+}
+@media (max-width:700px){
+  .app{margin:12px;padding:12px}
+  .bento-grid{grid-template-columns:1fr;grid-template-areas:"hero" "side1" "side2" "aq" "chart"}
+  .hero-card{grid-column:span 1}
+  .chart-area{grid-column:span 1}
+  .square-tile{aspect-ratio:auto;height:110px}
+  .temp-large{font-size:clamp(28px,10vw,56px)}
+  .empty-inner h2{font-size:28px}
+  .temp-skel{width:220px;height:80px}
+}
+
+/* Accessibility: prefer reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+
+/* Utility helpers */
+.center{display:flex;align-items:center;justify-content:center}
+.align-right{text-align:right}

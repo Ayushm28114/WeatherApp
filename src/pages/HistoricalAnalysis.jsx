@@ -1,12 +1,50 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import HistoricalCharts from '../shared/HistoricalCharts'
-import { startOfDay } from 'date-fns'
+import { startOfDay, subMonths, differenceInDays } from 'date-fns'
 
 export default function HistoricalAnalysis() {
-  const [start, setStart] = useState(startOfDay(new Date()))
-  const [end, setEnd] = useState(startOfDay(new Date()))
+  const today = startOfDay(new Date())
+  const [start, setStart] = useState(startOfDay(subMonths(today, 1)))
+  const [end, setEnd] = useState(today)
+  const [coords, setCoords] = useState(null)
+  const [error, setError] = useState(null)
+
+  // On mount, try to get geolocation automatically
+  useEffect(() => {
+    if (!('geolocation' in navigator)) {
+      setError('Geolocation not supported')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      p => setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }),
+      e => setError(e.message || 'Unable to get location'),
+      { timeout: 8000 }
+    )
+  }, [])
+
+  // Ensure selected range is not greater than 2 years
+  const handleStartChange = d => {
+    const s = startOfDay(d)
+    // clamp: if difference > 730 days -> set start to end - 2 years
+    const days = differenceInDays(end, s)
+    if (days > 730) {
+      setStart(startOfDay(subMonths(end, 24)))
+    } else {
+      setStart(s)
+    }
+  }
+
+  const handleEndChange = d => {
+    const e = startOfDay(d)
+    const days = differenceInDays(e, start)
+    if (days > 730) {
+      setEnd(startOfDay(subMonths(e, -24)))
+    } else {
+      setEnd(e)
+    }
+  }
 
   return (
     <div className="page historical">
@@ -14,15 +52,17 @@ export default function HistoricalAnalysis() {
       <div className="controls">
         <div>
           <label>Start:</label>
-          <DatePicker selected={start} onChange={d => setStart(startOfDay(d))} />
+          <DatePicker selected={start} onChange={handleStartChange} />
         </div>
         <div>
           <label>End:</label>
-          <DatePicker selected={end} onChange={d => setEnd(startOfDay(d))} />
+          <DatePicker selected={end} onChange={handleEndChange} />
         </div>
       </div>
 
-      <HistoricalCharts start={start} end={end} />
+      {error && <div className="note">Location error: {error}</div>}
+
+      <HistoricalCharts start={start} end={end} coords={coords} />
     </div>
   )
 }

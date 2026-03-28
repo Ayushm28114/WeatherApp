@@ -8,28 +8,35 @@ import { format } from 'date-fns'
 Chart.register(...registerables)
 Chart.register(zoomPlugin)
 
-export default function HistoricalCharts({ start, end }) {
+export default function HistoricalCharts({ start, end, coords: propsCoords }) {
   const [coords, setCoords] = useState(null)
   const [data, setData] = useState(null)
 
   useEffect(() => {
+    if (propsCoords) {
+      setCoords(propsCoords)
+      return
+    }
     if (!('geolocation' in navigator)) return
     navigator.geolocation.getCurrentPosition(p => setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }))
-  }, [])
+  }, [propsCoords])
 
   useEffect(() => {
     if (!coords || !start || !end) return
     const fetch = async () => {
       const s = format(start, 'yyyy-MM-dd')
       const e = format(end, 'yyyy-MM-dd')
-      const url = `https://api.open-meteo.com/v1/era5?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${s}&end_date=${e}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=Asia/Kolkata`
+      // sanitize coords
+      const lat = Number(coords.lat).toFixed(6)
+      const lon = Number(coords.lon).toFixed(6)
+      const url = `https://api.open-meteo.com/v1/era5?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&start_date=${encodeURIComponent(s)}&end_date=${encodeURIComponent(e)}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=Asia/Kolkata`
       const r = await axios.get(url)
       setData(r.data)
     }
     fetch()
   }, [coords, start, end])
 
-  if (!data) return <div>Waiting for data...</div>
+  if (!data) return <div className="note">Waiting for data...</div>
 
   const labels = data.daily.time.map(t => format(new Date(t), 'yyyy-MM-dd'))
 
