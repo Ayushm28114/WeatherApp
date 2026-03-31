@@ -15,11 +15,18 @@ export default function HistoricalAnalysis() {
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setError('Geolocation not supported')
+      // fallback to London
+      setCoords({ lat: 51.5074, lon: -0.1278 })
       return
     }
     navigator.geolocation.getCurrentPosition(
       p => setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      e => setError(e.message || 'Unable to get location'),
+      e => {
+        const msg = e.message || 'Unable to get location'
+        setError(msg)
+        // fallback to central London to ensure historical data loads
+        setCoords({ lat: 51.5074, lon: -0.1278 })
+      },
       { timeout: 8000 }
     )
   }, [])
@@ -60,9 +67,13 @@ export default function HistoricalAnalysis() {
         </div>
       </div>
 
-      {error && <div className="note">Location error: {error}</div>}
+      {error && <div className="note">Location error: {error} — using fallback location</div>}
 
-      <HistoricalCharts start={start} end={end} coords={coords} />
+      {!coords && <div className="note">Acquiring location…</div>}
+
+      {coords && (
+        <HistoricalCharts start={start} end={end} coords={coords} />
+      )}
     </div>
   )
 }

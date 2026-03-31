@@ -33,8 +33,21 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 .app{max-width:1200px;margin:28px auto;padding:20px}
 
 /* Immersive mesh background + subtle grain */
-.app::before{content:'';position:fixed;inset:0;z-index:-2;background:radial-gradient(800px 600px at 12% 8%, rgba(14,165,233,0.06), transparent), radial-gradient(700px 500px at 88% 92%, rgba(139,92,246,0.04), transparent), linear-gradient(180deg,var(--bg-1),var(--bg-2));}
-.app::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.02"/></svg>');opacity:0.03}
+.app::before{content:'';position:fixed;inset:0;z-index:-3;background:linear-gradient(135deg,#071034 0%, #12203a 40%, #2b2160 100%);pointer-events:none}
+.app::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(circle at 20% 18%, rgba(250,200,100,0.06), transparent 8%), radial-gradient(circle at 80% 85%, rgba(96,165,250,0.04), transparent 12%)}
+
+/* subtle animated cloud layers using SVG data URI to keep things local and performant */
+.clouds {
+  position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0.16;
+}
+.clouds .layer{position:absolute;left:-30%;right:-30%;height:220px;background-repeat:repeat-x;background-position:0 0}
+.clouds .layer.bg1{top:8%;background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220"><g fill="rgba(255,255,255,0.06)"><ellipse cx="150" cy="120" rx="100" ry="30"/><ellipse cx="300" cy="100" rx="140" ry="40"/><ellipse cx="500" cy="120" rx="110" ry="34"/><ellipse cx="700" cy="90" rx="140" ry="40"/><ellipse cx="900" cy="120" rx="100" ry="30"/></g></svg>');animation:cloudMoveSlow 60s linear infinite}
+.clouds .layer.bg2{top:22%;height:160px;opacity:0.08;background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="900" height="160"><g fill="rgba(255,255,255,0.05)"><ellipse cx="100" cy="80" rx="90" ry="24"/><ellipse cx="260" cy="60" rx="120" ry="34"/><ellipse cx="420" cy="80" rx="90" ry="26"/><ellipse cx="580" cy="50" rx="120" ry="34"/><ellipse cx="740" cy="80" rx="90" ry="26"/></g></svg>');animation:cloudMove 40s linear infinite}
+@keyframes cloudMove{from{transform:translateX(0)}to{transform:translateX(40%)}}
+@keyframes cloudMoveSlow{from{transform:translateX(0)}to{transform:translateX(30%)}}
+
+/* soft sun glow in top-right for daytime feel */
+.sun-glow{position:fixed;right:8%;top:6%;width:420px;height:420px;border-radius:50%;z-index:-2;pointer-events:none;background:radial-gradient(circle at 35% 30%, rgba(250,200,100,0.08), rgba(250,200,100,0.03) 25%, transparent 45%)}
 
 /* Top navigation (legacy .topbar used by App.jsx) */
 .topbar, .navbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-radius:14px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);box-shadow:var(--shadow-outer)}
@@ -82,7 +95,7 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 /* Loading skeletons */
 .loading-state{padding:30px}
 .skeleton{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.06), rgba(255,255,255,0.02));height:12px;border-radius:8px}
-.temp-skel{height:120px;width:300px;border-radius:12px;animation:shimmer 1.6s infinite linear}
+.temp-skel{height:120px;width:300px;border-radius:12px;animation:shimmer 1.6s infinite}
 @keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
 
 /* Empty state - search location hero */
