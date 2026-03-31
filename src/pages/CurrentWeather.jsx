@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import axios from 'axios'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -6,10 +6,77 @@ import { format, startOfDay } from 'date-fns'
 import WeatherCharts from '../shared/WeatherCharts'
 
 const DEFAULT_PARAMS = {
-  hourly: 'temperature_2m,relativehumidity_2m,precipitation,visibility,windspeed_10m,pm10,pm2_5',
+  hourly: 'temperature_2m,relativehumidity_2m,precipitation,visibility,windspeed_10m,pm10,pm2_5,apparent_temperature',
   daily: 'temperature_2m_max,temperature_2m_min,uv_index_max,apparent_temperature_max,sunrise,sunset,precipitation_sum,windspeed_10m_max,precipitation_probability_max',
   current_weather: true,
   timezone: 'auto'
+}
+
+// Sample location for demo/testing (San Francisco)
+const SAMPLE_COORDS = { lat: 37.7749, lon: -122.4194 }
+
+// Simple cache to prevent duplicate API requests
+const requestCache = new Map()
+const getCacheKey = (lat, lon, date) => `${lat}-${lon}-${date}`
+
+// SVG Weather Icons with animations
+const WeatherIcon = ({ type, className = '' }) => {
+  const iconStyles = {
+    display: 'inline-block',
+    width: '32px',
+    height: '32px',
+    animation: 'float 3s ease-in-out infinite'
+  }
+
+  switch (type) {
+    case 'thermometer':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={iconStyles} className={className}>
+          <path d="M12 2v20M9 5a3 3 0 0 1 6 0v11a3 3 0 0 1-6 0V5Z" />
+        </svg>
+      )
+    case 'droplet':
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={iconStyles} className={className}>
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.32 0z" />
+        </svg>
+      )
+    case 'wind':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={iconStyles} className={className}>
+          <path d="M9.59 4.59A2 2 0 1 1 7 7m11.36-2a2 2 0 1 0 2.83 2.83M21 13a2 2 0 0 0-2-2H7a2 2 0 0 0 0 4h12a2 2 0 0 0 2-2" />
+        </svg>
+      )
+    case 'eye':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={iconStyles} className={className}>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )
+    case 'sun':
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={iconStyles} className={className}>
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2" />
+          <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2" />
+          <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" />
+          <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      )
+    case 'leaf':
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={iconStyles} className={className}>
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8" />
+        </svg>
+      )
+    default:
+      return null
+  }
 }
 
 export default function CurrentWeather() {
@@ -21,6 +88,7 @@ export default function CurrentWeather() {
   const [geoError, setGeoError] = useState(null)
   const [manualLat, setManualLat] = useState('')
   const [manualLon, setManualLon] = useState('')
+  const abortControllerRef = useRef(null)
 
   useEffect(() => {
     if (!('geolocation' in navigator)) {
@@ -41,48 +109,64 @@ export default function CurrentWeather() {
     )
   }, [])
 
-  const requestLocation = () => {
+  const requestLocation = useCallback(() => {
     if (!('geolocation' in navigator)) return alert('Geolocation not available')
     navigator.geolocation.getCurrentPosition(pos => {
       const { latitude, longitude } = pos.coords
       setCoords({ lat: latitude, lon: longitude })
     }, err => console.warn(err))
-  }
+  }, [])
 
-  function applyManualCoords() {
+  const applyManualCoords = useCallback(() => {
     const lat = parseFloat(manualLat)
     const lon = parseFloat(manualLon)
     if (!isFinite(lat) || !isFinite(lon)) return setGeoError('Enter valid numeric coordinates')
     setCoords({ lat, lon })
     setGeoError(null)
-  }
+  }, [manualLat, manualLon])
 
   useEffect(() => {
     if (!coords) return
+
     const fetchData = async () => {
       setLoading(true)
       try {
         const isoDate = format(date, 'yyyy-MM-dd')
-        // sanitize and format coords; keep request minimal to avoid 400 errors
         const lat = Number(coords.lat).toFixed(6)
         const lon = Number(coords.lon).toFixed(6)
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&start_date=${encodeURIComponent(isoDate)}&end_date=${encodeURIComponent(isoDate)}&hourly=${encodeURIComponent(DEFAULT_PARAMS.hourly)}&daily=${encodeURIComponent(DEFAULT_PARAMS.daily)}&current_weather=true&timezone=${encodeURIComponent(DEFAULT_PARAMS.timezone)}`
-        // use a forgiving timeout and single retry
-        let resp
-        try {
-          resp = await axios.get(url, { timeout: 10000 })
-        } catch (err) {
-          // retry once
-          resp = await axios.get(url, { timeout: 10000 })
+        const cacheKey = getCacheKey(lat, lon, isoDate)
+
+        // Check cache first
+        if (requestCache.has(cacheKey)) {
+          setData(requestCache.get(cacheKey))
+          setLoading(false)
+          return
         }
+
+        // Cancel previous request if exists
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&start_date=${encodeURIComponent(isoDate)}&end_date=${encodeURIComponent(isoDate)}&hourly=${encodeURIComponent(DEFAULT_PARAMS.hourly)}&daily=${encodeURIComponent(DEFAULT_PARAMS.daily)}&current_weather=true&timezone=${encodeURIComponent(DEFAULT_PARAMS.timezone)}`
+        
+        const resp = await axios.get(url, { 
+          timeout: 5000,
+          signal: abortControllerRef.current.signal
+        })
+        
+        requestCache.set(cacheKey, resp.data)
         setData(resp.data)
       } catch (e) {
+        if (axios.isCancel(e)) return // Request was cancelled
         console.error('Fetch error', e)
         setGeoError('Failed to fetch weather data — try again or enter coordinates manually')
       } finally {
         setLoading(false)
       }
     }
+
     fetchData()
   }, [coords, date])
 
@@ -110,6 +194,21 @@ export default function CurrentWeather() {
           border: 1px solid rgba(255, 255, 255, 0.06);
           padding: 16px;
           border-radius: 16px;
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-8px); }
+        }
+        
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 255, 0.3); }
+          50% { box-shadow: 0 0 30px rgba(14, 165, 255, 0.5); }
+        }
+        
+        @keyframes slide-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         
         .current .controls {
@@ -300,6 +399,18 @@ export default function CurrentWeather() {
           padding: 16px;
           border-radius: 14px;
           transition: all 0.3s ease;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          gap: 8px;
+        }
+        
+        .current .square-tile-icon {
+          color: var(--accent);
+          font-size: 20px;
+          opacity: 0.9;
         }
         
         .current .square-tile:nth-of-type(2) { grid-area: side1; }
@@ -540,6 +651,18 @@ export default function CurrentWeather() {
             <label>Units:</label>
             <button onClick={() => setUnitC(u => !u)} className="btn small">{unitC ? '°F' : '°C'}</button>
           </div>
+          {!coords && !geoError && (
+            <div className="input-inline">
+              <label>&nbsp;</label>
+              <button 
+                onClick={() => setCoords(SAMPLE_COORDS)} 
+                className="btn small" 
+                style={{ background: 'linear-gradient(90deg, rgba(14, 165, 255, 0.6), rgba(96, 218, 251, 0.5))', border: '1px solid rgba(96, 218, 251, 0.3)' }}
+              >
+                📍 Demo Location
+              </button>
+            </div>
+          )}
         </div>
 
         {/* show geo error + manual coordinate inputs when geolocation fails */}
@@ -591,27 +714,36 @@ export default function CurrentWeather() {
             </div>
 
             <div className="card square-tile">
+              <div className="square-tile-icon"><WeatherIcon type="wind" /></div>
               <h4>Wind Speed</h4>
-              <div className="value-strong">{data.daily.windspeed_10m_max[0]} m/s</div>
+              <div className="value-strong">{data.daily?.windspeed_10m_max?.[0] ?? 'N/A'} m/s</div>
             </div>
 
             <div className="card square-tile">
+              <div className="square-tile-icon"><WeatherIcon type="droplet" /></div>
               <h4>Humidity</h4>
-              <div className="value-strong">{data.hourly.relativehumidity_2m[0]}%</div>
+              <div className="value-strong">{data.hourly?.relativehumidity_2m?.[0] ?? 'N/A'}%</div>
             </div>
 
             <div className="card square-tile">
+              <div className="square-tile-icon"><WeatherIcon type="eye" /></div>
               <h4>Visibility</h4>
-              <div className="value-strong">{data.hourly.visibility ? (data.hourly.visibility[0] / 1000).toFixed(1) : 'N/A'} km</div>
+              <div className="value-strong">{data.hourly?.visibility?.[0] ? (data.hourly.visibility[0] / 1000).toFixed(1) : 'N/A'} km</div>
             </div>
 
             <div className="card wide-card">
               <h4>Air Quality</h4>
               <div>
-                <span className={(data.hourly?.pm2_5?.[0] ?? null) > 75 ? 'aqi-poor' : (data.hourly?.pm2_5?.[0] ?? null) > 35 ? 'aqi-moderate' : 'aqi-good'}>
-                  PM2.5: {data.hourly?.pm2_5?.[0] ? data.hourly.pm2_5[0].toFixed(1) : 'N/A'} µg/m³
-                </span>
-                <span className="note" style={{ marginLeft: 0 }}>PM10: {data.hourly?.pm10?.[0] ? data.hourly.pm10[0].toFixed(1) : 'N/A'} µg/m³</span>
+                {(() => {
+                  const pm25 = data.hourly?.pm2_5?.[0]
+                  const aqi = typeof pm25 === 'number' ? (pm25 > 75 ? 'aqi-poor' : pm25 > 35 ? 'aqi-moderate' : 'aqi-good') : 'aqi-good'
+                  return (
+                    <span className={aqi}>
+                      PM2.5: {typeof pm25 === 'number' ? pm25.toFixed(1) : 'N/A'} µg/m³
+                    </span>
+                  )
+                })()}
+                <span className="note" style={{ marginLeft: 0 }}>PM10: {typeof data.hourly?.pm10?.[0] === 'number' ? data.hourly.pm10[0].toFixed(1) : 'N/A'} µg/m³</span>
               </div>
             </div>
 

@@ -1,7 +1,15 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
-import CurrentWeather from './pages/CurrentWeather'
-import HistoricalAnalysis from './pages/HistoricalAnalysis'
+
+// Lazy load pages for code-splitting
+const CurrentWeather = lazy(() => import('./pages/CurrentWeather'))
+const HistoricalAnalysis = lazy(() => import('./pages/HistoricalAnalysis'))
+
+const LoadingFallback = () => (
+  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-2)' }}>
+    Loading weather data...
+  </div>
+)
 
 export default function App() {
   return (
@@ -14,10 +22,12 @@ export default function App() {
         </div>
       </nav>
       <main>
-        <Routes>
-          <Route path="/" element={<CurrentWeather />} />
-          <Route path="/historical" element={<HistoricalAnalysis />} />
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<CurrentWeather />} />
+            <Route path="/historical" element={<HistoricalAnalysis />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   )

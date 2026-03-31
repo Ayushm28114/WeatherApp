@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { Line, Bar } from 'react-chartjs-2'
 import { Chart, registerables } from 'chart.js'
@@ -8,12 +8,72 @@ import { format, differenceInCalendarDays, addDays } from 'date-fns'
 Chart.register(...registerables)
 Chart.register(zoomPlugin)
 
+// Optimized Chart.js options with enhanced visuals (dark tooltips, subtle grids, gradient fills)
+const createChartOptions = () => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false,
+  interaction: { mode: 'nearest', intersect: false },
+  scales: {
+    x: { 
+      display: true, 
+      grid: { display: false, drawBorder: false },
+      ticks: { maxTicksLimit: 8, color: 'rgba(255, 255, 255, 0.4)', font: { size: 10 } } 
+    },
+    y: { 
+      display: true, 
+      grid: { display: true, color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+      ticks: { maxTicksLimit: 5, color: 'rgba(255, 255, 255, 0.4)', font: { size: 10 } } 
+    }
+  },
+  plugins: {
+    zoom: { 
+      pan: { enabled: true, mode: 'x' }, 
+      zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } 
+    },
+    legend: {
+      display: true,
+      labels: {
+        usePointStyle: true,
+        padding: 12,
+        font: { size: 11 },
+        color: 'rgba(255, 255, 255, 0.8)'
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      borderColor: 'rgba(14, 165, 255, 0.3)',
+      borderWidth: 1,
+      padding: 10,
+      displayColors: true,
+      cornerRadius: 8
+    }
+  }
+})
+
+// Chart color schemes
+const CHART_COLORS = {
+  temperature: { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.1)' },
+  humidity: { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.1)' },
+  precipitation: { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.1)' },
+  visibility: { border: 'rgb(153, 102, 255)', bg: 'rgba(153, 102, 255, 0.1)' },
+  wind: { border: 'rgb(255, 159, 64)', bg: 'rgba(255, 159, 64, 0.1)' },
+  pm10: { border: 'rgb(255, 193, 7)', bg: 'rgba(255, 193, 7, 0.1)' },
+  pm25: { border: 'rgb(244, 67, 54)', bg: 'rgba(244, 67, 54, 0.1)' }
+}
+
+// Request cache for historical data
+const historicalCache = new Map()
+
 export default function HistoricalCharts({ start, end, coords: propsCoords }) {
   const [coords, setCoords] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [tempUnitC, setTempUnitC] = useState(true) // true = Celsius, false = Fahrenheit
+  const [tempUnitC, setTempUnitC] = useState(true)
+  const abortControllerRef = useRef(null)
 
   useEffect(() => {
     if (propsCoords) {
@@ -24,6 +84,10 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
     navigator.geolocation.getCurrentPosition(p => setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }))
   }, [propsCoords])
 
+  const getCacheKey = useCallback((lat, lon, startDate, endDate) => {
+    return `${lat}-${lon}-${startDate}-${endDate}`
+  }, [])
+
   useEffect(() => {
     if (!coords || !start || !end) return
     const fetch = async () => {
@@ -33,21 +97,32 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
       try {
         const s = format(start, 'yyyy-MM-dd')
         const e = format(end, 'yyyy-MM-dd')
-        // compute inclusive day count
         const days = differenceInCalendarDays(end, start) + 1
-        // sanitize coords
         const lat = Number(coords.lat).toFixed(6)
         const lon = Number(coords.lon).toFixed(6)
+        const cacheKey = getCacheKey(lat, lon, s, e)
 
-        const buildEraUrl = (startDate, endDate) => `https://api.open-meteo.com/v1/era5?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=auto`
-        const buildForecastUrl = (startDate, endDate) => `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=auto`
+        // Check cache first
+        if (historicalCache.has(cacheKey)) {
+          setData(historicalCache.get(cacheKey))
+          setLoading(false)
+          return
+        }
 
-        // Try ERA5; if the range is >31 days and ERA5 returns 404, attempt chunked ERA5 requests of <=31 days
+        // Cancel previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+
+        const buildEraUrl = (startDate, endDate) => `https://api.open-meteo.com/v1/era5?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=auto`
+        const buildForecastUrl = (startDate, endDate) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,windspeed_10m_max&timezone=auto`
+
         const tryEra5Single = async () => {
           const url = buildEraUrl(s, e)
-          const r = await axios.get(url, { timeout: 15000 })
+          const r = await axios.get(url, { timeout: 10000, signal: abortControllerRef.current?.signal })
           if (r.status !== 200) throw new Error(`HTTP ${r.status}`)
-          if (!r.data || !r.data.daily || !r.data.daily.time) throw new Error('Invalid response from ERA5 API')
+          if (!r.data?.daily?.time) throw new Error('Invalid response from ERA5 API')
           return r.data
         }
 
@@ -61,19 +136,17 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
             ranges.push({ s: format(cursor, 'yyyy-MM-dd'), e: format(actualEnd, 'yyyy-MM-dd') })
             cursor = addDays(actualEnd, 1)
           }
-          // fetch all chunks sequentially to be kind to the API (can be parallel if desired)
           const parts = []
           for (const r of ranges) {
             const url = buildEraUrl(r.s, r.e)
-            const res = await axios.get(url, { timeout: 15000 })
+            const res = await axios.get(url, { timeout: 10000, signal: abortControllerRef.current?.signal })
             if (res.status !== 200) throw new Error(`HTTP ${res.status}`)
-            if (!res.data || !res.data.daily || !res.data.daily.time) throw new Error('Invalid response from ERA5 API chunk')
+            if (!res.data?.daily?.time) throw new Error('Invalid response from ERA5 API chunk')
             parts.push(res.data.daily)
           }
 
-          // combine parts into one daily object
           const keys = Object.keys(parts[0])
-          const combined = { time: [], }
+          const combined = { time: [] }
           for (const k of keys) combined[k] = []
 
           for (const p of parts) {
@@ -82,61 +155,58 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
             }
           }
 
-          // Build a full response-like object
           return { daily: combined }
         }
 
         try {
-          // prefer single call
           const eraData = await tryEra5Single()
+          historicalCache.set(cacheKey, eraData)
           setData(eraData)
           return
         } catch (innerErr) {
           const status = innerErr.response?.status
-          console.warn('ERA5 single call failed', innerErr.message || innerErr)
+          if (axios.isCancel(innerErr)) return
 
-          // If 404 and range >31 days, attempt chunked ERA5
           if (status === 404 && days > 31) {
             try {
               const chunked = await tryEra5Chunked()
+              historicalCache.set(cacheKey, chunked)
               setData(chunked)
               return
             } catch (chunkErr) {
-              console.warn('ERA5 chunked fetch failed', chunkErr)
-              // fall through to forecast fallback
+              if (axios.isCancel(chunkErr)) return
             }
           }
 
-          // If small range (<=31) or chunking failed, and status was 404 or data missing, try forecast fallback
           if (status === 404 || days <= 31) {
             try {
               const fUrl = buildForecastUrl(s, e)
-              const fr = await axios.get(fUrl, { timeout: 15000 })
+              const fr = await axios.get(fUrl, { timeout: 10000, signal: abortControllerRef.current?.signal })
               if (fr.status !== 200) throw new Error(`Forecast HTTP ${fr.status}`)
-              if (!fr.data || !fr.data.daily || !fr.data.daily.time) throw new Error('Invalid response from forecast API')
+              if (!fr.data?.daily?.time) throw new Error('Invalid response from forecast API')
 
               const fd = fr.data
               if (!fd.daily.temperature_2m_mean && fd.daily.temperature_2m_max && fd.daily.temperature_2m_min) {
                 fd.daily.temperature_2m_mean = fd.daily.temperature_2m_max.map((max, i) => {
                   const min = fd.daily.temperature_2m_min[i]
-                  // handle null/undefined values defensively
                   if (typeof max !== 'number' || typeof min !== 'number') return null
                   return (max + min) / 2
                 })
               }
 
+              historicalCache.set(cacheKey, fd)
               setData(fd)
               return
             } catch (fbErr) {
-              console.warn('Forecast fallback failed', fbErr)
+              if (axios.isCancel(fbErr)) return
               throw fbErr
             }
           }
 
-          // otherwise rethrow
           throw innerErr
         }
       } catch (err) {
+        if (axios.isCancel(err)) return
         console.error('Historical fetch error', err)
         const status = err.response?.status
         setError(status ? `Request failed with status code ${status}` : (err.message || 'Failed to load historical data'))
@@ -145,7 +215,7 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
       }
     }
     fetch()
-  }, [coords, start, end])
+  }, [coords, start, end, getCacheKey])
 
   // ensure hooks are called in same order every render
   const labels = useMemo(() => {
@@ -155,13 +225,11 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
   const temp = useMemo(() => ({
     labels,
     datasets: [
-      { label: 'Mean Temp', data: data?.daily?.temperature_2m_mean || [], borderColor: 'orange' },
-      { label: 'Max Temp', data: data?.daily?.temperature_2m_max || [], borderColor: 'red' },
-      { label: 'Min Temp', data: data?.daily?.temperature_2m_min || [], borderColor: 'blue' }
+      { label: 'Mean Temp', data: data?.daily?.temperature_2m_mean || [], borderColor: 'orange', tension: 0.1, fill: false, pointRadius: 2 },
+      { label: 'Max Temp', data: data?.daily?.temperature_2m_max || [], borderColor: 'red', tension: 0.1, fill: false, pointRadius: 2 },
+      { label: 'Min Temp', data: data?.daily?.temperature_2m_min || [], borderColor: 'blue', tension: 0.1, fill: false, pointRadius: 2 }
     ]
   }), [data, labels])
-
-  const options = useMemo(() => ({ plugins: { zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } } }, scales: { x: { display: true } }, maintainAspectRatio: false }), [])
 
   // index for the 'current' / last day in the returned daily arrays
   const todayIndex = useMemo(() => {
@@ -232,20 +300,113 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
     return `${Math.round(v * 9/5 + 32)}°F`
   }
 
-  // Hourly labels and datasets (defensive)
-  const hourlyLabels = useMemo(() => (data?.hourly?.time ?? []).map(t => format(new Date(t), 'yyyy-MM-dd HH:mm')), [data])
+  // Hourly labels and datasets (defensive, with enhanced colors and options)
+  const hourlyLabels = useMemo(() => (data?.hourly?.time ?? []).map(t => format(new Date(t), 'HH:mm')), [data])
 
-  const hourlyTempDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'Temp (hourly)', data: (data?.hourly?.temperature_2m ?? []).map(v => tempUnitC ? v : (v * 9/5 + 32)), borderColor: 'orange', fill: false } ] }), [data, hourlyLabels, tempUnitC])
+  const hourlyTempDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [{ 
+      label: 'Temperature (°C)', 
+      data: (data?.hourly?.temperature_2m ?? []).map(v => tempUnitC ? v : (v * 9/5 + 32)), 
+      borderColor: CHART_COLORS.temperature.border,
+      backgroundColor: CHART_COLORS.temperature.bg,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    }] 
+  }), [data, hourlyLabels, tempUnitC])
 
-  const hourlyHumidityDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'Relative Humidity', data: data?.hourly?.relativehumidity_2m ?? [], borderColor: 'blue', fill: false } ] }), [data, hourlyLabels])
+  const hourlyHumidityDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [{ 
+      label: 'Humidity (%)', 
+      data: data?.hourly?.relativehumidity_2m ?? [], 
+      borderColor: CHART_COLORS.humidity.border,
+      backgroundColor: CHART_COLORS.humidity.bg,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    }] 
+  }), [data, hourlyLabels])
 
-  const hourlyPrecipDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'Precipitation', data: data?.hourly?.precipitation ?? [], borderColor: 'navy', fill: false } ] }), [data, hourlyLabels])
+  const hourlyPrecipDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [{ 
+      label: 'Precipitation (mm)', 
+      data: data?.hourly?.precipitation ?? [], 
+      borderColor: CHART_COLORS.precipitation.border,
+      backgroundColor: CHART_COLORS.precipitation.bg,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    }] 
+  }), [data, hourlyLabels])
 
-  const hourlyVisibilityDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'Visibility', data: data?.hourly?.visibility ?? [], borderColor: 'purple', fill: false } ] }), [data, hourlyLabels])
+  const hourlyVisibilityDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [{ 
+      label: 'Visibility (m)', 
+      data: data?.hourly?.visibility ?? [], 
+      borderColor: CHART_COLORS.visibility.border,
+      backgroundColor: CHART_COLORS.visibility.bg,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    }] 
+  }), [data, hourlyLabels])
 
-  const hourlyWindDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'Wind Speed (10m)', data: data?.hourly?.windspeed_10m ?? [], borderColor: 'teal', fill: false } ] }), [data, hourlyLabels])
+  const hourlyWindDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [{ 
+      label: 'Wind Speed (m/s)', 
+      data: data?.hourly?.windspeed_10m ?? [], 
+      borderColor: CHART_COLORS.wind.border,
+      backgroundColor: CHART_COLORS.wind.bg,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    }] 
+  }), [data, hourlyLabels])
 
-  const hourlyPMDataset = useMemo(() => ({ labels: hourlyLabels, datasets: [ { label: 'PM10', data: data?.hourly?.pm10 ?? [], borderColor: 'orange', fill: false }, { label: 'PM2.5', data: data?.hourly?.pm2_5 ?? [], borderColor: 'red', fill: false } ] }), [data, hourlyLabels])
+  const hourlyPMDataset = useMemo(() => ({ 
+    labels: hourlyLabels, 
+    datasets: [
+      { 
+        label: 'PM10 (µg/m³)', 
+        data: data?.hourly?.pm10 ?? [], 
+        borderColor: CHART_COLORS.pm10.border,
+        backgroundColor: CHART_COLORS.pm10.bg,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 1.5,
+        pointHoverRadius: 4,
+        borderWidth: 2
+      }, 
+      { 
+        label: 'PM2.5 (µg/m³)', 
+        data: data?.hourly?.pm2_5 ?? [], 
+        borderColor: CHART_COLORS.pm25.border,
+        backgroundColor: CHART_COLORS.pm25.bg,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 1.5,
+        pointHoverRadius: 4,
+        borderWidth: 2
+      } 
+    ] 
+  }), [data, hourlyLabels])
+
+  const chartOptions = createChartOptions()
 
   if (loading) return <div className="note">Loading historical data…</div>
   if (error) return <div className="note">Error: {error}</div>
@@ -571,34 +732,35 @@ export default function HistoricalCharts({ start, end, coords: propsCoords }) {
       <div className="hourly-charts">
         <div>
           <h4>Hourly Temperature</h4>
-          <div className="hourly-chart-container"><Line data={hourlyTempDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Line data={hourlyTempDataset} options={chartOptions} /></div>
         </div>
 
         <div>
           <h4>Hourly Humidity</h4>
-          <div className="hourly-chart-container"><Line data={hourlyHumidityDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Line data={hourlyHumidityDataset} options={chartOptions} /></div>
         </div>
 
         <div>
           <h4>Hourly Precipitation</h4>
-          <div className="hourly-chart-container"><Bar data={hourlyPrecipDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Bar data={hourlyPrecipDataset} options={chartOptions} /></div>
         </div>
 
         <div>
           <h4>Hourly Visibility</h4>
-          <div className="hourly-chart-container"><Line data={hourlyVisibilityDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Line data={hourlyVisibilityDataset} options={chartOptions} /></div>
         </div>
 
         <div>
           <h4>Hourly Wind Speed</h4>
-          <div className="hourly-chart-container"><Line data={hourlyWindDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Line data={hourlyWindDataset} options={chartOptions} /></div>
         </div>
 
         <div>
           <h4>PM10 & PM2.5</h4>
-          <div className="hourly-chart-container"><Line data={hourlyPMDataset} options={options} /></div>
+          <div className="hourly-chart-container"><Line data={hourlyPMDataset} options={chartOptions} /></div>
         </div>
       </div>
     </div>
   )
 }
+
