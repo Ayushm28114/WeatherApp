@@ -103,13 +103,15 @@ export default function HistoricalAnalysis() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 12px;
-          align-items: flex-end;
+          align-items: flex-start;
         }
 
         .historical .date-input-group {
           display: flex;
           flex-direction: column;
           gap: 6px;
+          position: relative;
+          z-index: auto;
         }
 
         .historical .date-input-group label {
@@ -132,6 +134,8 @@ export default function HistoricalAnalysis() {
 
         .historical .date-picker-wrapper {
           position: relative;
+          width: 100%;
+          overflow: visible;
         }
 
         .historical .date-picker-wrapper::before {
@@ -142,7 +146,7 @@ export default function HistoricalAnalysis() {
           transform: translateY(-50%);
           font-size: 16px;
           pointer-events: none;
-          z-index: 1;
+          z-index: 2;
         }
 
         .historical .react-datepicker-wrapper input,
@@ -155,8 +159,10 @@ export default function HistoricalAnalysis() {
           font-size: 13px;
           font-weight: 500;
           width: 100%;
+          max-width: 100%;
           transition: all 0.28s ease;
           font-family: inherit;
+          box-sizing: border-box;
         }
 
         .historical .react-datepicker-wrapper input:hover,
