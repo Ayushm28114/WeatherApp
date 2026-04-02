@@ -284,13 +284,13 @@ export default function HistoricalAnalysis() {
         <div className="date-range-inputs">
           <div className="date-input-group">
             <label>Start Date</label>
-            <span className="date-label-value">{start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span className="date-label-value">{start.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             <div className="date-picker-wrapper">
               <DatePicker 
                 selected={start} 
                 onChange={handleStartChange}
                 maxDate={end}
-                dateFormat="MMM dd, yyyy"
+                dateFormat="dd/MM/yyyy"
                 className="datepicker-input"
               />
             </div>
@@ -298,13 +298,13 @@ export default function HistoricalAnalysis() {
 
           <div className="date-input-group">
             <label>End Date</label>
-            <span className="date-label-value">{end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span className="date-label-value">{end.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             <div className="date-picker-wrapper">
               <DatePicker 
                 selected={end} 
                 onChange={handleEndChange}
                 minDate={start}
-                dateFormat="MMM dd, yyyy"
+                dateFormat="dd/MM/yyyy"
                 className="datepicker-input"
               />
             </div>
