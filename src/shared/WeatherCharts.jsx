@@ -7,17 +7,16 @@ import { format } from 'date-fns'
 Chart.register(...registerables)
 Chart.register(zoomPlugin)
 
-// Optimized Chart.js options for performance with enhanced visuals
+// Chart configuration
 const createChartOptions = (accentColor = 'rgb(14, 165, 255)') => ({
   responsive: true,
-  maintainAspectRatio: false,
-  animation: false, // Disable animations for faster rendering
+  maintainAspectRatio: false,    animation: false,
   interaction: { mode: 'nearest', intersect: false },
   scales: {
     x: { 
       display: true,
       grid: { 
-        display: false, // Invisible grid lines for cleaner look
+        display: false,
         drawBorder: false
       },
       ticks: { 

@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 
-// Lazy load pages for code-splitting
+// Lazy load pages
 const CurrentWeather = lazy(() => import('./pages/CurrentWeather'))
 const HistoricalAnalysis = lazy(() => import('./pages/HistoricalAnalysis'))
 

@@ -8,7 +8,7 @@ import { format, differenceInCalendarDays, addDays } from 'date-fns'
 Chart.register(...registerables)
 Chart.register(zoomPlugin)
 
-// Optimized Chart.js options with enhanced visuals (dark tooltips, subtle grids, gradient fills)
+// Chart configuration
 const createChartOptions = () => ({
   responsive: true,
   maintainAspectRatio: false,

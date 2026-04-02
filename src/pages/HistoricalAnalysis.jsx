@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import DatePicker from 'react-datepicker'
-import 'react-datepicker/dist/react-datepicker.css'
 import HistoricalCharts from '../shared/HistoricalCharts'
-import { startOfDay, subMonths, differenceInDays } from 'date-fns'
+import { startOfDay, subMonths, differenceInDays, parse } from 'date-fns'
 
 export default function HistoricalAnalysis() {
   const today = startOfDay(new Date())
@@ -11,11 +9,10 @@ export default function HistoricalAnalysis() {
   const [coords, setCoords] = useState(null)
   const [error, setError] = useState(null)
 
-  // On mount, try to get geolocation automatically
+  // Get geolocation on mount
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setError('Geolocation not supported')
-      // fallback to London
       setCoords({ lat: 51.5074, lon: -0.1278 })
       return
     }
@@ -24,17 +21,15 @@ export default function HistoricalAnalysis() {
       e => {
         const msg = e.message || 'Unable to get location'
         setError(msg)
-        // fallback to central London to ensure historical data loads
         setCoords({ lat: 51.5074, lon: -0.1278 })
       },
       { timeout: 8000 }
     )
   }, [])
 
-  // Ensure selected range is not greater than 2 years
+  // Validate date range (max 2 years)
   const handleStartChange = d => {
     const s = startOfDay(d)
-    // clamp: if difference > 730 days -> set start to end - 2 years
     const days = differenceInDays(end, s)
     if (days > 730) {
       setStart(startOfDay(subMonths(end, 24)))
@@ -286,12 +281,25 @@ export default function HistoricalAnalysis() {
             <label>Start Date</label>
             <span className="date-label-value">{start.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             <div className="date-picker-wrapper">
-              <DatePicker 
-                selected={start} 
-                onChange={handleStartChange}
-                maxDate={end}
-                dateFormat="dd/MM/yyyy"
+              <input 
+                type="text"
                 className="datepicker-input"
+                value={start.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                onChange={(e) => {
+                  try {
+                    const parsed = parse(e.target.value, 'dd/MM/yyyy', new Date())
+                    const s = startOfDay(parsed)
+                    const days = differenceInDays(end, s)
+                    if (days > 730) {
+                      setStart(startOfDay(subMonths(end, 24)))
+                    } else if (!isNaN(parsed.getTime())) {
+                      setStart(s)
+                    }
+                  } catch (err) {
+                    // Invalid date, ignore
+                  }
+                }}
+                placeholder="dd/mm/yyyy"
               />
             </div>
           </div>
@@ -300,12 +308,25 @@ export default function HistoricalAnalysis() {
             <label>End Date</label>
             <span className="date-label-value">{end.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             <div className="date-picker-wrapper">
-              <DatePicker 
-                selected={end} 
-                onChange={handleEndChange}
-                minDate={start}
-                dateFormat="dd/MM/yyyy"
+              <input 
+                type="text"
                 className="datepicker-input"
+                value={end.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                onChange={(e) => {
+                  try {
+                    const parsed = parse(e.target.value, 'dd/MM/yyyy', new Date())
+                    const e_date = startOfDay(parsed)
+                    const days = differenceInDays(e_date, start)
+                    if (days > 730) {
+                      setEnd(startOfDay(subMonths(e_date, -24)))
+                    } else if (!isNaN(parsed.getTime())) {
+                      setEnd(e_date)
+                    }
+                  } catch (err) {
+                    // Invalid date, ignore
+                  }
+                }}
+                placeholder="dd/mm/yyyy"
               />
             </div>
           </div>

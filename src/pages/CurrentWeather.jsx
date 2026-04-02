@@ -12,14 +12,14 @@ const DEFAULT_PARAMS = {
   timezone: 'auto'
 }
 
-// Sample location for demo/testing (San Francisco)
+// Default coordinates
 const SAMPLE_COORDS = { lat: 37.7749, lon: -122.4194 }
 
-// Simple cache to prevent duplicate API requests
+// Cache to prevent duplicate API requests
 const requestCache = new Map()
 const getCacheKey = (lat, lon, date) => `${lat}-${lon}-${date}`
 
-// SVG Weather Icons with animations
+// Weather icons
 const WeatherIcon = ({ type, className = '' }) => {
   const iconStyles = {
     display: 'inline-block',

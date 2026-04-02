@@ -1,42 +1,34 @@
-/* Weather Dashboard - Modern Dark Glass Theme
-   - High-contrast dark mode
-   - Glassmorphism cards (light blur, subtle border)
-   - Bento grid layout for Current page
-   - Fluid typography for key metrics
-   - Minimal chart chrome hooks
-   - Mobile-first, performant styles
-*/
+
 :root{
-  --bg-1: #0f172a; /* updated deep mesh start */
-  --bg-2: #312e81; /* updated deep mesh end */
+  --bg-1: #0f172a;
+  --bg-2: #312e81;
   --panel: rgba(255,255,255,0.03);
   --panel-strong: rgba(255,255,255,0.06);
   --glass-border: rgba(255,255,255,0.10);
 
-  --accent: #0ea5ff; /* Electric Blue (vibrant) */
+  --accent: #0ea5ff;
   --accent-2: #60dafb;
-  --warm: #fb923c; /* warm for temp highlights */
-  --warn: #f97316; /* alert/warning */
-  --success: #34d399; /* AQ good */
+  --warm: #fb923c;
+  --warn: #f97316;
+  --success: #34d399;
   --muted: rgba(255,255,255,0.88);
   --muted-2: rgba(255,255,255,0.6);
 
-  --radius: 28px; /* softer rounding for premium feel */
+  --radius: 28px;
   --shadow-outer: 0 20px 60px rgba(2,6,23,0.7);
-  --glass-blur: 16px; /* deeper blur per request */
+  --glass-blur: 16px;
 }
 
 /* Base layout */
-*{box-sizing:border-box}
 html,body,#root{height:100%}
 body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); color:var(--muted); -webkit-font-smoothing:antialiased}
 .app{max-width:1200px;margin:28px auto;padding:20px}
 
-/* Immersive mesh background + subtle grain */
+/* Immersive mesh background */
 .app::before{content:'';position:fixed;inset:0;z-index:-3;background:linear-gradient(135deg,#071034 0%, #12203a 40%, #2b2160 100%);pointer-events:none}
 .app::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(circle at 20% 18%, rgba(250,200,100,0.06), transparent 8%), radial-gradient(circle at 80% 85%, rgba(96,165,250,0.04), transparent 12%)}
 
-/* subtle animated cloud layers using SVG data URI to keep things local and performant */
+/* Cloud layers */
 .clouds {
   position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0.16;
 }
@@ -46,10 +38,10 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 @keyframes cloudMove{from{transform:translateX(0)}to{transform:translateX(40%)}}
 @keyframes cloudMoveSlow{from{transform:translateX(0)}to{transform:translateX(30%)}}
 
-/* soft sun glow in top-right for daytime feel */
+/* Sun glow */
 .sun-glow{position:fixed;right:8%;top:6%;width:420px;height:420px;border-radius:50%;z-index:-2;pointer-events:none;background:radial-gradient(circle at 35% 30%, rgba(250,200,100,0.08), rgba(250,200,100,0.03) 25%, transparent 45%)}
 
-/* Top navigation (legacy .topbar used by App.jsx) */
+/* Navigation */
 .topbar, .navbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-radius:14px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);box-shadow:var(--shadow-outer)}
 .topbar h1, .app-title{margin:0;font-size:18px;color:#fff;font-weight:700}
 .nav-links, .navbar-center{display:flex;gap:12px}
@@ -64,20 +56,20 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 .btn:active{transform:translateY(1px)}
 .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(2,6,23,0.5)}
 
-/* Glass card base - premium glassmorphism */
+/* Glass card base */
 .card{
   backdrop-filter: blur(var(--glass-blur));
-  background: rgba(255,255,255,0.03); /* frosted glass */
+  background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: var(--radius);
-  padding: 24px; /* increased padding for luxury spacing */
+  padding: 24px;
   transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
   overflow:hidden;
   box-shadow: 0 24px 80px rgba(2,6,23,0.65);
 }
 .card:hover{transform:translateY(-8px);box-shadow:0 36px 100px rgba(2,6,23,0.72);border-color: rgba(255,255,255,0.16)}
 
-/* Grid areas for bento - use template areas for clarity */
+/* Grid layout */
 .bento-grid{display:grid;grid-template-columns: repeat(3, 1fr);grid-template-areas: "hero hero side1" "hero hero side2" "aq chart chart";gap:18px;align-items:start}
 .hero-card{grid-area:hero}
 .square-tile:nth-of-type(1){grid-area:side1}
@@ -85,7 +77,7 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 .wide-card{grid-area:aq}
 .chart-area{grid-area:chart}
 
-/* DatePicker and inputs restyle */
+/* DatePicker and inputs */
 .input-inline{display:flex;flex-direction:column}
 .datepicker-wrap .input{background:rgba(0,0,0,0.25);border-radius:12px;padding:8px 10px;color:#fff;border:none}
 .react-datepicker__tab-loop{outline:none}
@@ -109,26 +101,21 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe
 .city-name{font-size:2rem;font-weight:800;color:#fff;letter-spacing:0.2px}
 .value-strong{font-weight:800;color:#fff}
 
-/* ensure the glass shell and hero stand out */
+/* Glass shell */
 .glass-shell{backdrop-filter: blur(20px);background: rgba(255,255,255,0.03);border-radius:28px;border:1px solid rgba(255,255,255,0.10);padding:24px;box-shadow: 0 40px 120px rgba(2,6,23,0.75), inset 0 1px 0 rgba(255,255,255,0.02)}
 
 /* Typography & hierarchy */
 .temp-large{font-weight:200;color:transparent;background:linear-gradient(90deg,var(--accent),var(--warm));-webkit-background-clip:text;background-clip:text;font-size:5rem;line-height:1;text-shadow:0 12px 40px rgba(14,165,233,0.08)}
 .note{opacity:0.6}
 
-/* Units toggle & active tab glow */
+/* Active tab styling */
 .nav-links a.active, .navbar-center a.active{background:linear-gradient(90deg, rgba(14,165,233,0.14), rgba(14,165,233,0.06));color:#fff;font-weight:700;box-shadow:0 10px 40px rgba(14,165,233,0.14);backdrop-filter:blur(6px)}
 
-/* Chart styling hooks (configure in Chart.js options using these vars):
-   grid color: rgba(255,255,255,0.05)
-   primary line: var(--accent)
-   fill gradient: from rgba(251,146,60,0.18) to transparent (use ctx.createLinearGradient)
-*/
+/* Chart styling */
 .chart-area canvas{width:100%!important;height:360px!important}
 
-/* Bento Card Spacing override already applied via .card */
 
-/* Mobile responsiveness - stack to single column, mobile-first */
+/* Mobile responsiveness */
 @media (max-width:1000px){
   .bento-grid{grid-template-columns:repeat(2,1fr);grid-template-areas:"hero hero" "side1 side2" "aq chart"}
   .hero-card{grid-column:span 2}
